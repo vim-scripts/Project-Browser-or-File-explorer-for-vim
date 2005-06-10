@@ -1,0 +1,8 @@
+This is a mirror of http://www.vim.org/scripts/script.php?script_id=1299
+
+Emulates the project file browser similar to some popular code browsers.      
+This will list all the files in the project in a new window and allow user to open any file by mouse click/<CR>/O/V/H. This will come very handy when you are dealing with huge number of files and you really dont want to worry about the project directory structure, but just about the filename you are working on.  
+
+More information about the key maps and configuration can be found in the fileexplorer.vim file.
+
+Feel free to contact me, in case you have any questions/feedback.
