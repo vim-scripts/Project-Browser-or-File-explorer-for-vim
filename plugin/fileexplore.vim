@@ -15,14 +15,15 @@
 " Distribution: This plugin comes with GPL (General Public License), You have
 " are free to use/distribute/modify the plugin.
 "
-" Installation: Copy this file to .vim/plugin folder. 
+" Installation: Copy this file to .vim/plugin folder.  
 " I have tried this on free BSD. Should also work on linux and cygwin.
 "
 " Substitue with path below your project root dir or just '.', in case you are
-" working on multiple projects. I use '.' and ensure to open vim from the
+" working on multiple projects. I use '.' and ensure to open vim/gvim from the
 " project's root directory, I am interested on.
-" map <F5> :FileExplore /\b/\kpradeep/\src<CR> 
-" The above line can be placed in your '.vimrc' file
+" map <F5> :FileExplore /\build/\pradeep/\tree1/\src<CR> 
+ map <F5> :FileExplore .<CR> 
+" The above line can be placed in your '.vimrc' file or just leave it here.
 " 
 " You need to specify F5 (in my example, refer the map command above to change the same) 
 " on your gvim/vim to open the file explorer. The window split format (horizontal/vertical/none) 
@@ -30,8 +31,8 @@
 " because it uses the unix find command) with all the files (.c and .h file, support is provided 
 " below to specify more extensions) in ascending order. User can use '\' or '\^' (search from 
 " first letter of the file) vi commands to go the appropriate file in the file explorer and press 
-" <CR> to open the file in the specified window (vert/hor/none - you can tune this parameter below).
-" User can also press 'O'/ double click left mouse button to open the file instead of <CR>.
+" 'O' to open the file in the specified window (vert/hor/none - you can tune this parameter 'splitBehaviour').
+" User can press <CR>/ double click left mouse button to open the file in the previous window.
 " 'V' to open the file in vertical split (this will override the split stype configuration).
 " 'H' to open the file in horizontal split (this will override the split stype configuration).
 " Vi command '?'  or '?^' can also be used for searching the file in the file explorer 
@@ -75,52 +76,35 @@ function! s:FileBrowse( dir )
     exec ':1,$s/\..*\///g' 
     exec ':%!sort' 
 
-	noremap <buffer> <CR> :call <SID>EditFile()<CR>
-    nnoremap <silent> <buffer> O :call <SID>EditFile()<cr>
-    nnoremap <silent> <buffer> <2-LeftMouse> :call <SID>EditFile()<cr>
-    nnoremap <silent> <buffer> V :call <SID>EditFileVer()<cr>
-    nnoremap <silent> <buffer> H :call <SID>EditFileHor()<cr>
+    nnoremap <silent> <buffer> O :call <SID>EditFilePrev(0)<cr>
+	noremap <buffer> <CR> :call <SID>EditFilePrev(1)<CR>
+    nnoremap <silent> <buffer> <2-LeftMouse> :call <SID>EditFilePrev(1)<cr>
+    nnoremap <silent> <buffer> V :call <SID>EditFilePrev(2)<cr>
+    nnoremap <silent> <buffer> H :call <SID>EditFilePrev(3)<cr>
 endfunction
 
-" EditFile -- open the file on the current line in new buffer. must be full path
-	function! s:EditFile()
-	" Are we on a line with a file name?
-	let l = getline(".")
+" EditFilePrev -- open the file in the current line in previous buffer. must be full path
+fun! s:EditFilePrev(openOption)
+  " split type configured, based on 'splitBehaviour' (a:openOption=0)
+  " in previous window (a:openOption=1)
+  " in new vertical window (a:openOption=2)
+  " in new horizontal window (a:openOption=3)
+  let l = getline(".")
 	if l =~ '^"'  " checks for comments
 		return
-	endif
-
+   endif
+  if a:openOption == 0
 	if "vert" == s:splitBehavior
-		vertical new
+        vsplit
 	elseif "horiz" == s:splitBehavior
-		new
+	    split	
 	endif
-	"exec ':edit ' . l
-    exec ':cs find f '  . l
-endfunction
-
-" EditFileVer -- open the file on the current line in vertical split. must be full path
-	function! s:EditFileVer()
-	" Are we on a line with a file name?
-	let l = getline(".")
-	if l =~ '^"'  " checks for comments
-		return
-	endif
-
-	vertical new
-	"exec ':edit ' . l
-    exec ':cs find f '  . l
-endfunction
-
-" EditFileHor -- open the file on the current line in horizontal split. must be full path
-	function! s:EditFileHor()
-	" Are we on a line with a file name?
-	let l = getline(".")
-	if l =~ '^"'  " checks for comments
-		return
-	endif
-
-    new
-	"exec ':edit ' . l
-    exec ':cs find f '  . l
+  elseif a:openOption == 1
+    wincmd p
+  elseif a:openOption == 2
+    vsplit
+  elseif a:openOption == 3
+    split
+  endif
+  exec ':cs find f '  . l
 endfunction
