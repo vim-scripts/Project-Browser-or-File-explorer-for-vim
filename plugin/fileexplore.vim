@@ -18,13 +18,32 @@
 " Installation: Copy this file to .vim/plugin folder.  
 " I have tried this on free BSD. Should also work on linux and cygwin.
 "
+" Tunable parameters
+" set file name for storing the list of files
+let s:fileListName='filelist'
+
 " Substitue with path below your project root dir or just '.', in case you are
 " working on multiple projects. I use '.' and ensure to open vim/gvim from the
 " project's root directory, I am interested on.
-" map <F5> :FileExplore /\build/\pradeep/\tree1/\src<CR> 
- map <F5> :FileExplore .<CR> 
-" The above line can be placed in your '.vimrc' file or just leave it here.
-" 
+let s:fileProjectPath='.'
+
+" set path to the find binary
+let s:find_path='/usr/bin/find'
+
+" set filter -- see find man page for details
+let s:filter='-name *.c -or -name *.h'
+
+" set splitting behavior : none | vert | horiz
+let s:splitBehavior='vert'
+
+"Eliminate duplicate filenames in the file explorer. If you wish to keep the
+"duplicate filenames (if you keep duplicates, it will give you an idea of how many such files 
+"are there in the give project) then you can set this variable to no.
+let s:fileExplorerDuplicateRemove='yes'
+
+"Remove file names starting with '.' from the project explorer
+let s:fileExplorerDotRemove='yes'
+
 " You need to specify F5 (in my example, refer the map command above to change the same) 
 " on your gvim/vim to open the file explorer. The window split format (horizontal/vertical/none) 
 " configuration is supported below. The file explorer will come up (initially it will take time, 
@@ -43,23 +62,29 @@
 " command from the vim/gvim editor itself. For information on using/setting up cscope please go to 
 " 'http://cscope.sourceforge.net/' and 'http://cscope.sourceforge.net/cscope_vim_tutorial.html'
 "
-" set path to the find binary
-let s:find_path='/usr/bin/find'
+ map <F5> :FileExplore<CR> 
 
-" set filter -- see find man page for details
-let s:filter='-name *.c -or -name *.h'
+ "Open the file explorer with the existing file list in the file, specified by the parameter
+ "s:fileListName. The advantage of this is that the 'find' command will not be
+ "used everytime you open the project, instead the filelist is picked up from
+ "the existing file, specified by s:fileListName parameter. This list can be
+ "updated based upon the requirement ('R' is mapped for updating/refrehing filelist)
+ map <C-p> :FileExploreList<CR> 
 
-" set splitting behavior : none | vert | horiz
-let s:splitBehavior='vert'
 
+
+" Code begins
 " multiple define check
 if !exists(':FileExplore')
-	command -nargs=1 -complete=dir FileExplore call s:FileBrowse('<args>')
+	command -nargs=0 -complete=dir FileExplore call s:FileBrowse()
+endif
+
+if !exists(':FileExploreList')
+	command -nargs=0 -complete=dir FileExploreList call s:FileBrowseList()
 endif
 
 " FileBrowse
-" @param dir -- directory used to recursively assemble file list 
-function! s:FileBrowse( dir )
+function! s:FileBrowse()
 	if "vert" == s:splitBehavior
 		botright vertical new 
 	elseif "horiz" == s:splitBehavior
@@ -67,24 +92,81 @@ function! s:FileBrowse( dir )
 	endif
 
 	setlocal bufhidden=wipe buftype=nofile noswapfile
-	let headers = a:dir . '/*.h'
-	let cpps = a:dir . '/*.cpp'
-	exec ':r!' . s:find_path . ' ' . a:dir . ' ' . s:filter
+	exec ':r!' . s:find_path . ' ' . s:fileProjectPath . ' ' . s:filter
 	:0
 	setlocal ignorecase nohlsearch
 
-    exec ':1,$s/\..*\///g' 
-    exec ':%!sort' 
+    :1,$s/\..*\///g 
+    :%!sort 
+    "Remove first blank line
+	:0
+    "Remove the empty parent folder line
+    :1d 
+	if "yes" == s:fileExplorerDotRemove
+        :g/^\..*/d 
+    endif
+	if "yes" == s:fileExplorerDuplicateRemove
+        exec ':g/^/ call s:Duplicate()'
+    endif
+    exec ':%!cat >' s:fileListName
+    exec ':%!cat ' s:fileListName
 
-    nnoremap <silent> <buffer> O :call <SID>EditFilePrev(0)<cr>
-	noremap <buffer> <CR> :call <SID>EditFilePrev(1)<CR>
-    nnoremap <silent> <buffer> <2-LeftMouse> :call <SID>EditFilePrev(1)<cr>
-    nnoremap <silent> <buffer> V :call <SID>EditFilePrev(2)<cr>
-    nnoremap <silent> <buffer> H :call <SID>EditFilePrev(3)<cr>
+    call s:FileMapKeys()
 endfunction
 
-" EditFilePrev -- open the file in the current line in previous buffer. must be full path
-fun! s:EditFilePrev(openOption)
+
+" FileBrowseList
+function! s:FileBrowseList()
+	if "vert" == s:splitBehavior
+		botright vertical new 
+	elseif "horiz" == s:splitBehavior
+		new
+	endif
+
+	setlocal bufhidden=wipe buftype=nofile noswapfile
+    exec ':%!cat ' s:fileListName
+	:0
+	setlocal ignorecase nohlsearch
+
+    call s:FileMapKeys()
+endfunction
+
+
+" FileMapKeys -- To may the keys
+function! s:FileMapKeys()
+    nnoremap <silent> <buffer> O :call <SID>EditFile(0)<cr>
+	noremap <buffer> <CR> :call <SID>EditFile(1)<CR>
+    nnoremap <silent> <buffer> <2-LeftMouse> :call <SID>EditFile(1)<cr>
+    nnoremap <silent> <buffer> V :call <SID>EditFile(2)<cr>
+    nnoremap <silent> <buffer> H :call <SID>EditFile(3)<cr>
+    nnoremap <silent> <buffer> R :call <SID>RefreshList()<cr>
+endfunction
+
+" FileMapKeys -- To may the keys
+function! s:RefreshList()
+    "Remove everything from the file
+    :1,$d 
+	exec ':r!' . s:find_path . ' ' . s:fileProjectPath . ' ' . s:filter
+	:0
+	setlocal ignorecase nohlsearch
+
+    :1,$s/\..*\///g 
+    :%!sort 
+    "Remove first blank line
+	:0
+    "Remove the empty parent folder line
+    :1d 
+	if "yes" == s:fileExplorerDotRemove
+        :g/^\..*/d 
+    endif
+	if "yes" == s:fileExplorerDuplicateRemove
+        exec ':g/^/ call s:Duplicate()'
+    endif
+    exec ':%!cat >' s:fileListName
+    exec ':%!cat ' s:fileListName
+endfunction
+" EditFile -- open the file in the current line in a buffer.
+fun! s:EditFile(openOption)
   " split type configured, based on 'splitBehaviour' (a:openOption=0)
   " in previous window (a:openOption=1)
   " in new vertical window (a:openOption=2)
@@ -107,4 +189,11 @@ fun! s:EditFilePrev(openOption)
     split
   endif
   exec ':cs find f '  . l
+endfunction
+
+" function to delete duplicate lines
+fun! s:Duplicate()
+    if getline(".") == getline(line(".") - 1)
+        norm dd
+    endif
 endfunction
